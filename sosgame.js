@@ -28,8 +28,8 @@ function loadSOSGame(canvasName) {
     var canvas = document.getElementById(canvasName);
     var ctx = canvas.getContext("2d");
     /* Helpers */
-    function convasX(x) {return x - canvas.offsetLeft;}
-    function convasY(y) {return y - canvas.offsetTop;}
+    function convasX(x) {return x - canvas.offsetLeft - canvas.scrollLeft;}
+    function convasY(y) {return y - canvas.offsetTop - canvas.scrollTop;}
     function neg(OS) {return (OS == 'S' ? 'C' : 'S');}
 
     /* All Definitions */
@@ -54,15 +54,30 @@ function loadSOSGame(canvasName) {
     var GameDisplay = new (function GameDisplay() {
         
         /* Global Variables */
-        var OSHeight = 50;
-        var OSWidth = 25;
+        var OSHeight = 100;
+        var OSWidth = 50;
         var blkWidth = 2 * OSWidth;
         var blkHeight = OSHeight;
         var blocks = [];
-        var fps = 1 / 50;
+        this.fps = 1 / 50;
         var OS_HOVER_TRANS = 1;
         var OS_DEHOVER_TRANS = 0.25;
         var OS_ORI_TRANS = 0;
+
+        ctx.clear = function() {
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+        };
+        
+        ctx.draw = function() {
+            for (var i = 0; i < GameLogic.size; i++) {
+                for (var j = 0; j < GameLogic.size; j++) {
+                    // debug('bx'+i+j, blocks[i][j].bx, i); 
+                    // debug('by'+i+j, blocks[i][j].by, j);
+                    
+                    blocks[i][j].draw();
+                }
+            }
+        };
         
         function Animate(target) {
             var interval;
@@ -71,13 +86,13 @@ function loadSOSGame(canvasName) {
             this.during = function(condf, func) {
                 // debug(condf);
                 // debug(this.target);
-                return function() {
+                return function(param) {
                     clearInterval(interval);
                     interval = setInterval(function() {
-                        if (! condf(target)) {clearInterval(interval); return;}
+                        if (! condf(target, param)) {clearInterval(interval); return;}
                         // debug("Animate: run func(target))");
                         func(target);
-                    }, 1/50);
+                    }, 1/60);
                 };
             };
         };
@@ -90,6 +105,7 @@ function loadSOSGame(canvasName) {
             this.y = y;
             this.os = os;
             this.draw = function() {
+                ctx.textBaseline = 'top';
                 ctx.font = "20pt Arial";
                 ctx.strokeStyle="rgba(0,0,0,"+this.trans+")";
                 ctx.strokeText(this.os, this.x, this.y);
@@ -98,8 +114,10 @@ function loadSOSGame(canvasName) {
                 // debug('x_'+x, this.x, 0); debug('y_'+y, this.y);
             };
             var animate = new Animate(this);
-            this.fadein = animate.during(function(obj) {return obj.trans < OS_HOVER_TRANS}, 
-                                         function(obj) {debug("this", obj.super.fps); obj.trans++; this.super.clear(); this.super.redraw();});
+            this.fadein = animate.during(function(obj, lim) {return obj.trans < lim}, 
+                                         function(obj) {obj.trans+=0.2; ctx.clear(); ctx.draw();});
+            this.fadeout = animate.during(function(obj) {return obj.trans > OS_DEHOVER_TRANS;},
+                                          function(obj) {obj.trans-=0.2; ctx.clear(); ctx.draw();});
             // debug(this.fadein);
         }
         
@@ -109,10 +127,23 @@ function loadSOSGame(canvasName) {
             this.height = blkHeight;
             this.x = bx * this.width;
             this.y = by * this.height;
+            this.bx = bx;
+            this.by = by;
             this.OS = ' ';
             this.animated = false;
             this.O = new OS(this.x, this.y, 'O');
             this.S = new OS(this.x + OSWidth, this.y, 'S');
+            this.draw = function() {
+                ctx.textBaseline = 'top';
+                ctx.font = '12pt Aprial';
+                ctx.strokeText("bx = "+this.bx+' by = '+this.by, this.x, this.y);
+                this.O.draw();
+                this.S.draw();
+            };            
+            this.dehover = function() {
+                this.O.fadeout(0);
+                this.S.fadeout(0);
+            }
         };
                 
         
@@ -126,58 +157,34 @@ function loadSOSGame(canvasName) {
                     blocks[i].push(new Block(i, j));
                 }
             }
+            // debug("blocks[0][0].bx", blocks[0][0].bx, 0);
+            // debug("blocks[0][0].by", blocks[0][0].by, 0);
+            // debug("blocks[3][3].bx", blocks[3][3].bx, 3);
+            // debug("blocks[3][3].by", blocks[3][3].by, 3);
         }
         
         
         this.hoverAnimation = function(bx, by, OS) {
             debug('bx', bx); debug('by', by); debug('OS', OS);
             if (OS == 'S') {
-                // debug("blocks[bx][by].S.fadein",blocks[bx][by].S.fadein);
-                blocks[bx][by].S.fadein();
-                blocks[bx][by].O;
+                debug("hoverAnimation: call fadein on ", bx+' '+by+' '+'S');
+                blocks[bx][by].S.fadein(OS_HOVER_TRANS);
+                debug("hoverAnimation: call fadeout on ", bx+' '+by+' '+'O');
+                blocks[bx][by].O.fadeout();
             } else {
-                blocks[bx][by].O;
-                blocks[bx][by].S;
+                debug("hoverAnimation: call fadein on ", bx+' '+by+' '+'O');
+                blocks[bx][by].O.fadein(OS_HOVER_TRANS);
+                debug("hoverAnimation: call fadeout on ", bx+' '+by+' '+'S');
+                blocks[bx][by].S.fadeout();
             }
-            // if (a.animated) {return;}
-            // var i = setInterval(function() {
-            //     if (a.trans == 1) {
-            //         clearInterval(i); 
-            //         a.animated = b.animated = false;
-            //     } else {
-            //         a.trans += 0.2;
-            //         b.trans += 0.1;
-            //         this.redraw();
-            //     }
-            // }, fps);
         };
         
-        this.dehoverAnimation = function(bx, by, OS) {
-            var b = blocks[bx][by];
-            var i = setInterval(function() {
-                if (b.trans == 0) {
-                    clearInterval(i);
-                } else {
-                    trans--;
-                    this.redraw();
-                }
-            }, fps);
+        this.dehoverAnimation = function(bx, by) {
+            blocks[bx][by].dehover();
         }
         
-        this.clear = function() {
-            ctx.clearRect(0,0,canvas.width,canvas.height);
-        };
-        
-        this.redraw = function() {
-            for (var i = 0; i < GameLogic.size; i++) {
-                for (var j = 0; j < GameLogic.size; j++) {
-                    var b = blocks[i][j];
-                    b.O.draw();
-                    b.S.draw();
-                }
-            }
-        };
-        
+        this.clear = ctx.clear;
+        this.draw = ctx.draw;
         
         this.blockX = function(x) {
             if (x > this.chessboardRangeX) {return false;}
@@ -188,32 +195,40 @@ function loadSOSGame(canvasName) {
             return Math.floor(convasY(event.y) / blkHeight);
         };
         this.blockM = function(x, y) {
-            if (x > this.chessboardRangeX) {return ' ';}
+            if (x > this.chessboardRangeX || y > this.chessboardRangeY) {return false;}
             return convasX(event.x) / blkWidth % 1 > 0.5 ? "S" : "O";
-        };  
-    });
+        }; 
+});
     
     var GameControl = new (function GameControl() {        
         
         this.init = function() {
             var prevX = false;
             var prevY = false;
-            var prevM = ' ';
+            var prevOS = false;
             
             canvas.addEventListener("mousemove", function(event) {
                 var bx = GameDisplay.blockX(event.x);
                 var by = GameDisplay.blockY(event.y);
                 var os = GameDisplay.blockM(event.x, event.y);
-                if (bx && by && (prevX != bx || prevY != by) && prevM != os) {
-                    // debug('GameDisplay.blockX returns:', bx);
-                    // GameDisplay.dehoverAnimation(prevX, prevY, prevM);
-                    // debug("GameControl: call GameDisplay.hoverAnimation");
+                debug('GameControl-onmousemove: bx',bx);
+                debug('GameControl-onmousemove: by',by);
+                debug('GameControl-onmousemove: os',os);
+                debug('GameControl-onmousemove: prevX',prevX);
+                debug('GameControl-onmousemove: prevY',prevY);
+                debug('GameControl-onmousemove: prevOS',prevOS);
+                // debug(prevX !== bx || prevY !== by);
+                if (bx !== false && by !== false && (os !== prevOS || bx !== prevX || by !== prevY)) { // if the mouse is on a different O/S from last time, play hover animation // if mouse is in a chessboard block
+                    debug("GameControl: call hoverAnimation on", bx+' '+by+' '+os);
                     GameDisplay.hoverAnimation(bx, by, os);
                 }
-                
-                var prevX = bx;
-                var prevY = by;
-                var prevM = os;
+                if (prevX !== false && prevY !== false && (prevX !== bx || prevY !== by)) { // if the block has changed, play dehover animations on the block
+                    debug("GameControl: call dehoverAnimation on", prevX+' '+prevY+' '+prevOS);
+                    GameDisplay.dehoverAnimation(prevX, prevY, prevOS);
+                };
+                prevOS = os;
+                prevX = bx;
+                prevY = by;
             });
             
             canvas.addEventListener("click", function(event) {
@@ -232,6 +247,7 @@ function loadSOSGame(canvasName) {
     GameLogic.start(4);
     GameDisplay.start();
     GameControl.init();
-    GameDisplay.redraw();
+    GameDisplay.draw();
+
 
 }
