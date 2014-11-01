@@ -1,11 +1,11 @@
 "use strict";
 var DEBUG = true;
 var debugList = [];
-function debug(name, val, asset) {
+function debug(name, val, repeat, asset) {
     if (!DEBUG) {return;}
     var p;
     var text = (typeof val === 'undefined') ? (name+"; ") : (name+": "+val+"; ");
-    if (debugList.indexOf(name) == -1) {
+    if (debugList.indexOf(name) == -1 || repeat) {
         p = document.createElement("p");
         var t = document.createTextNode(text);
         p.id = 'debug_' + name;
@@ -20,7 +20,7 @@ function debug(name, val, asset) {
     if (typeof asset !== 'undefined' && asset !== val) {
         p.setAttribute('style','color: rgb(225,0,0)');
     }
-
+    return val;
 }
 
 function loadSOSGame(canvasName) {
@@ -49,6 +49,7 @@ function loadSOSGame(canvasName) {
         var OS = function(x, y, OS) {
             chessboard[x][y] = OS;
         };
+        
     });
         
     var GameDisplay = new (function GameDisplay() {
@@ -59,25 +60,27 @@ function loadSOSGame(canvasName) {
         var blkWidth = 2 * OSWidth;
         var blkHeight = OSHeight;
         var blocks = [];
-        this.fps = 1 / 50;
+        var FPS = 50;
         var OS_HOVER_TRANS = 1;
         var OS_DEHOVER_TRANS = 0.25;
         var OS_ORI_TRANS = 0;
 
-        ctx.clear = function() {
+        var clear = function() {
             ctx.clearRect(0,0,canvas.width,canvas.height);
         };
         
-        ctx.draw = function() {
+        var draw = function() {
             for (var i = 0; i < GameLogic.size; i++) {
                 for (var j = 0; j < GameLogic.size; j++) {
                     // debug('bx'+i+j, blocks[i][j].bx, i); 
                     // debug('by'+i+j, blocks[i][j].by, j);
-                    
                     blocks[i][j].draw();
                 }
             }
         };
+        
+        this.clear = clear;
+        this.draw = draw;
         
         function Animate(target) {
             var interval;
@@ -92,32 +95,43 @@ function loadSOSGame(canvasName) {
                         if (! condf(target, param)) {clearInterval(interval); return;}
                         // debug("Animate: run func(target))");
                         func(target);
-                    }, 1/60);
+                    }, 1000 / FPS);
                 };
             };
         };
         
         function OS(x, y, os) {
-            this.trans = OS_ORI_TRANS;
+            var animate = new Animate(this);
+            var m_trans = OS_ORI_TRANS;
+            this.trans = function(n) {
+                if (typeof n === 'undefined') {return m_trans;}
+                if (n > 1) {return m_trans = 1;}
+                if (n < 0.1) {return m_trans = 0;}
+                return m_trans = n;
+            };
             this.width = OSWidth;
             this.height = OSHeight;
             this.x = x;
             this.y = y;
             this.os = os;
             this.draw = function() {
-                ctx.textBaseline = 'top';
+                ctx.textBaseline = 'middle';
+                ctx.textAlign = 'center';
                 ctx.font = "20pt Arial";
-                ctx.strokeStyle="rgba(0,0,0,"+this.trans+")";
-                ctx.strokeText(this.os, this.x, this.y);
+                ctx.strokeStyle="rgba(0,0,0,"+this.trans()+")";
+                var tx = this.x + OSWidth / 2;
+                var ty = this.y + OSHeight / 2;
+                ctx.strokeText(this.os, tx, ty);
                 ctx.strokeStyle="#000";
                 ctx.strokeRect(this.x, this.y, this.width, this.height);
                 // debug('x_'+x, this.x, 0); debug('y_'+y, this.y);
             };
-            var animate = new Animate(this);
-            this.fadein = animate.during(function(obj, lim) {return obj.trans < lim}, 
-                                         function(obj) {obj.trans+=0.2; ctx.clear(); ctx.draw();});
-            this.fadeout = animate.during(function(obj) {return obj.trans > OS_DEHOVER_TRANS;},
-                                          function(obj) {obj.trans-=0.2; ctx.clear(); ctx.draw();});
+
+            this.fadein = animate.during(function(obj, lim) {return obj.trans() <= lim}, 
+                                         function(obj) {obj.trans(obj.trans()+0.2); debug("OS draw", obj.trans()); clear(); draw();});
+            this.fadeout = animate.during(function(obj, lim) {return obj.trans() > lim;},
+                                          function(obj) {obj.trans(obj.trans()-0.2); debug("OS draw", obj.trans()); clear(); draw();});
+            this.fadeto = function(n) {(this.trans() < n) ? this.fadein(n) : this.fadeout(n);}
             // debug(this.fadein);
         }
         
@@ -129,14 +143,14 @@ function loadSOSGame(canvasName) {
             this.y = by * this.height;
             this.bx = bx;
             this.by = by;
-            this.OS = ' ';
+            this.OS = false;
             this.animated = false;
             this.O = new OS(this.x, this.y, 'O');
             this.S = new OS(this.x + OSWidth, this.y, 'S');
             this.draw = function() {
-                ctx.textBaseline = 'top';
-                ctx.font = '12pt Aprial';
-                ctx.strokeText("bx = "+this.bx+' by = '+this.by, this.x, this.y);
+                // ctx.textBaseline = 'top';
+                // ctx.font = '12pt Aprial';
+                // ctx.strokeText("bx = "+this.bx+' by = '+this.by, this.x, this.y);
                 this.O.draw();
                 this.S.draw();
             };            
@@ -165,26 +179,22 @@ function loadSOSGame(canvasName) {
         
         
         this.hoverAnimation = function(bx, by, OS) {
-            debug('bx', bx); debug('by', by); debug('OS', OS);
             if (OS == 'S') {
                 debug("hoverAnimation: call fadein on ", bx+' '+by+' '+'S');
                 blocks[bx][by].S.fadein(OS_HOVER_TRANS);
                 debug("hoverAnimation: call fadeout on ", bx+' '+by+' '+'O');
-                blocks[bx][by].O.fadeout();
+                blocks[bx][by].O.fadeto(OS_DEHOVER_TRANS);
             } else {
                 debug("hoverAnimation: call fadein on ", bx+' '+by+' '+'O');
                 blocks[bx][by].O.fadein(OS_HOVER_TRANS);
                 debug("hoverAnimation: call fadeout on ", bx+' '+by+' '+'S');
-                blocks[bx][by].S.fadeout();
+                blocks[bx][by].S.fadeto(OS_DEHOVER_TRANS);
             }
         };
         
         this.dehoverAnimation = function(bx, by) {
             blocks[bx][by].dehover();
         }
-        
-        this.clear = ctx.clear;
-        this.draw = ctx.draw;
         
         this.blockX = function(x) {
             if (x > this.chessboardRangeX) {return false;}
@@ -211,12 +221,12 @@ function loadSOSGame(canvasName) {
                 var bx = GameDisplay.blockX(event.x);
                 var by = GameDisplay.blockY(event.y);
                 var os = GameDisplay.blockM(event.x, event.y);
-                debug('GameControl-onmousemove: bx',bx);
-                debug('GameControl-onmousemove: by',by);
-                debug('GameControl-onmousemove: os',os);
-                debug('GameControl-onmousemove: prevX',prevX);
-                debug('GameControl-onmousemove: prevY',prevY);
-                debug('GameControl-onmousemove: prevOS',prevOS);
+                // debug('GameControl-onmousemove: bx',bx);
+                // debug('GameControl-onmousemove: by',by);
+                // debug('GameControl-onmousemove: os',os);
+                // debug('GameControl-onmousemove: prevX',prevX);
+                // debug('GameControl-onmousemove: prevY',prevY);
+                // debug('GameControl-onmousemove: prevOS',prevOS);
                 // debug(prevX !== bx || prevY !== by);
                 if (bx !== false && by !== false && (os !== prevOS || bx !== prevX || by !== prevY)) { // if the mouse is on a different O/S from last time, play hover animation // if mouse is in a chessboard block
                     debug("GameControl: call hoverAnimation on", bx+' '+by+' '+os);
@@ -232,9 +242,9 @@ function loadSOSGame(canvasName) {
             });
             
             canvas.addEventListener("click", function(event) {
-                var x = Math.floor(convasX(event.x) / GameLogic.size);
-                var y = Math.floor(convasY(event.y) / GameLogic.size);
-                var os = (x % 1 > 0.5) ? "S" : "O";
+                var bx = GameDisplay.blockX(event.x);
+                var by = GameDisplay.blockY(event.y);
+                var os = GameDisplay.blockM(event.x, event.y);
                 GameDisplay.clickAnimation(x, y, os);
             });
         };
