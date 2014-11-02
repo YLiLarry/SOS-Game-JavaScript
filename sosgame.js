@@ -35,20 +35,47 @@ function loadSOSGame(canvasName) {
     /* All Definitions */
     
     var GameLogic = new (function GameLogic() {
-        this.chessboard = [];
-        this.start = function(size) {
+        
+        /* Chessboard Class */
+        function Chessboard(size) {
+            
+            var chessboard = [];
+            this.currentOS = 0;
             this.size = size;
             // create a size x size chessboard;
-            for (var i = 0; i < size; ++i) {
-                this.chessboard.push([]);
-                for (var j = 0; j < size; ++j) {
-                    this.chessboard[i].push(' ');
+            for (var i = 0; i < this.size; ++i) {
+                chessboard.push([]);
+                for (var j = 0; j < this.size; ++j) {
+                    chessboard[i].push(' ');
                 }
             }
+            
+            this.makeMove = function(x, y, OS) {chessboard[x][y] = OS;}
+            this.isFull = function() {return this.currentOS === this.size;}
+            this.block = function(bx, by) {};
+            
         };
-        var OS = function(x, y, OS) {
-            chessboard[x][y] = OS;
-        };
+        
+        this.startGame = function(size) {
+            debug("GameLogic: startGame");
+            this.chessboard = new Chessboard(size);
+            // debug(this.chessboard.currentOS);
+        }
+        
+        /* Player Subclass */
+        // function Player(name, type) {
+        //     this.name = name;        
+                
+        //     this.makeMove = function() {
+        //         if (type === 'Human') {
+        //             this.chessboard().makeMove(dx, dy, os);
+        //         }
+        //         if (this.chessboard().madeSOS)
+        //     };
+        //     this.madeSOS = function() {
+                
+        //     };
+        // }
         
     });
         
@@ -70,8 +97,9 @@ function loadSOSGame(canvasName) {
         };
         
         var draw = function() {
-            for (var i = 0; i < GameLogic.size; i++) {
-                for (var j = 0; j < GameLogic.size; j++) {
+            debug("GameDisplay: draw")
+            for (var i = 0; i < GameLogic.chessboard.size; i++) {
+                for (var j = 0; j < GameLogic.chessboard.size; j++) {
                     // debug('bx'+i+j, blocks[i][j].bx, i); 
                     // debug('by'+i+j, blocks[i][j].by, j);
                     blocks[i][j].draw();
@@ -151,8 +179,13 @@ function loadSOSGame(canvasName) {
                 // ctx.textBaseline = 'top';
                 // ctx.font = '12pt Aprial';
                 // ctx.strokeText("bx = "+this.bx+' by = '+this.by, this.x, this.y);
-                this.O.draw();
-                this.S.draw();
+                if (this.OS) {
+                    ctx.font = '20pt Aprial';                    
+                    ctx.strokeText(this.OS, this.x + blkWidth / 2, this.y + blkHeight / 2);
+                } else {
+                    this.O.draw();
+                    this.S.draw();
+                }
             };            
             this.dehover = function() {
                 this.O.fadeout(0);
@@ -161,20 +194,22 @@ function loadSOSGame(canvasName) {
         };
                 
         
-        this.start = function() {        
-            this.chessboardRangeX = GameLogic.size * OSWidth * 2;
-            this.chessboardRangeY = GameLogic.size * OSHeight;
+        this.start = function() {    
+            debug("GameDisplay: start");    
+            this.chessboardRangeX = GameLogic.chessboard.size * OSWidth * 2;
+            this.chessboardRangeY = GameLogic.chessboard.size * OSHeight;
             // create a size x size chessboard;
-            for (var i = 0; i < GameLogic.size; ++i) {
+            for (var i = 0; i < GameLogic.chessboard.size; ++i) {
                 blocks.push([]);
-                for (var j = 0; j < GameLogic.size; ++j) {
+                for (var j = 0; j < GameLogic.chessboard.size; ++j) {
+                    debug("push ", i+' '+j, true);
                     blocks[i].push(new Block(i, j));
                 }
             }
-            // debug("blocks[0][0].bx", blocks[0][0].bx, 0);
-            // debug("blocks[0][0].by", blocks[0][0].by, 0);
-            // debug("blocks[3][3].bx", blocks[3][3].bx, 3);
-            // debug("blocks[3][3].by", blocks[3][3].by, 3);
+            // debug("blocks[0][0].bx", blocks[0][0].bx, true, 0);
+            // debug("blocks[0][0].by", blocks[0][0].by, true, 0);
+            // debug("blocks[3][3].bx", blocks[3][3].bx, true, 3);
+            // debug("blocks[3][3].by", blocks[3][3].by, true, 3);
         }
         
         
@@ -208,56 +243,84 @@ function loadSOSGame(canvasName) {
             if (x > this.chessboardRangeX || y > this.chessboardRangeY) {return false;}
             return convasX(event.x) / blkWidth % 1 > 0.5 ? "S" : "O";
         }; 
-});
+    });
     
     var GameControl = new (function GameControl() {        
         
-        this.init = function() {
-            var prevX = false;
-            var prevY = false;
-            var prevOS = false;
+        this.Player = function(name, type) {
             
-            canvas.addEventListener("mousemove", function(event) {
-                var bx = GameDisplay.blockX(event.x);
-                var by = GameDisplay.blockY(event.y);
-                var os = GameDisplay.blockM(event.x, event.y);
-                // debug('GameControl-onmousemove: bx',bx);
-                // debug('GameControl-onmousemove: by',by);
-                // debug('GameControl-onmousemove: os',os);
-                // debug('GameControl-onmousemove: prevX',prevX);
-                // debug('GameControl-onmousemove: prevY',prevY);
-                // debug('GameControl-onmousemove: prevOS',prevOS);
-                // debug(prevX !== bx || prevY !== by);
-                if (bx !== false && by !== false && (os !== prevOS || bx !== prevX || by !== prevY)) { // if the mouse is on a different O/S from last time, play hover animation // if mouse is in a chessboard block
-                    debug("GameControl: call hoverAnimation on", bx+' '+by+' '+os);
-                    GameDisplay.hoverAnimation(bx, by, os);
-                }
-                if (prevX !== false && prevY !== false && (prevX !== bx || prevY !== by)) { // if the block has changed, play dehover animations on the block
-                    debug("GameControl: call dehoverAnimation on", prevX+' '+prevY+' '+prevOS);
-                    GameDisplay.dehoverAnimation(prevX, prevY, prevOS);
-                };
-                prevOS = os;
-                prevX = bx;
-                prevY = by;
-            });
+            this.type = type;
+    
+            this.usrMove = function(callback) {
+                var prevX = false;
+                var prevY = false;
+                var prevOS = false;
+                
+                canvas.addEventListener("mousemove", function(event) {
+                    debug("GameControl: addEventListener: mousemove");
+                    var bx = GameDisplay.blockX(event.x);
+                    var by = GameDisplay.blockY(event.y);
+                    var os = GameDisplay.blockM(event.x, event.y);
+                    // debug('GameControl-onmousemove: bx',bx);
+                    // debug('GameControl-onmousemove: by',by);
+                    // debug('GameControl-onmousemove: os',os);
+                    // debug('GameControl-onmousemove: prevX',prevX);
+                    // debug('GameControl-onmousemove: prevY',prevY);
+                    // debug('GameControl-onmousemove: prevOS',prevOS);
+                    // debug(prevX !== bx || prevY !== by);
+                    if (bx !== false && by !== false && (os !== prevOS || bx !== prevX || by !== prevY)) { // if the mouse is on a different O/S from last time, play hover animation // if mouse is in a chessboard block
+                        debug("GameControl: call hoverAnimation on", bx+' '+by+' '+os);
+                        GameDisplay.hoverAnimation(bx, by, os);
+                    }
+                    if (prevX !== false && prevY !== false && (prevX !== bx || prevY !== by)) { // if the block has changed, play dehover animations on the block
+                        debug("GameControl: call dehoverAnimation on", prevX+' '+prevY+' '+prevOS);
+                        GameDisplay.dehoverAnimation(prevX, prevY, prevOS);
+                    };
+                    prevOS = os;
+                    prevX = bx;
+                    prevY = by;
+                });
+                
+                canvas.addEventListener("click", function(event) {
+                    var bx = GameDisplay.blockX(event.x);
+                    var by = GameDisplay.blockY(event.y);
+                    var os = GameDisplay.blockM(event.x, event.y);
+                    GameDisplay.clickAnimation(bx, by, os);
+                    if (GameLogic.makeSOS(bx, by, os)) {}
+                    GameLogic.player.makeMove(bx, by, os);
+                    
+                    canvas.removeEventListener("mousemove");
+                    canvas.removeEventListener("click");
+                    callback();
+                });
+            };
             
-            canvas.addEventListener("click", function(event) {
-                var bx = GameDisplay.blockX(event.x);
-                var by = GameDisplay.blockY(event.y);
-                var os = GameDisplay.blockM(event.x, event.y);
-                GameDisplay.clickAnimation(x, y, os);
-            });
-        };
+            this.cmpMove = function() {
+            }
+            
+        }
             
     });
 
 
-    
     /* Main */
-    GameLogic.start(4);
+    var A = new GameControl.Player("A", 'Human');
+    var B = new GameControl.Player("B", 'Human');
+    
+    GameLogic.startGame(4);
     GameDisplay.start();
-    GameControl.init();
+    // GameControl.init();
     GameDisplay.draw();
-
+    
+    (function callback() {
+        debug("GameLogic.chessboard.isFull()", GameLogic.chessboard.isFull());
+        if (GameLogic.chessboard.isFull()) {return;}
+        if (A.type === 'Human') {
+            (B.type === 'Human') ? A.usrMove(function() {B.usrMove(callback)}) : A.usrMove(function() {B.cmpMove(callback)});
+        } else {
+            A.cmpMove();
+            (B.type === 'Human') ? B.usrMove(callback) : B.cmpMove(callback);
+        }
+    })();
 
 }
