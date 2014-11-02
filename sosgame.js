@@ -33,53 +33,8 @@ function loadSOSGame(canvasName) {
     function neg(OS) {return (OS == 'S' ? 'C' : 'S');}
 
     /* All Definitions */
-    
-    var GameLogic = new (function GameLogic() {
         
-        /* Chessboard Class */
-        function Chessboard(size) {
-            
-            var chessboard = [];
-            this.currentOS = 0;
-            this.size = size;
-            // create a size x size chessboard;
-            for (var i = 0; i < this.size; ++i) {
-                chessboard.push([]);
-                for (var j = 0; j < this.size; ++j) {
-                    chessboard[i].push(' ');
-                }
-            }
-            
-            this.makeMove = function(x, y, OS) {chessboard[x][y] = OS;}
-            this.isFull = function() {return this.currentOS === this.size;}
-            this.block = function(bx, by) {};
-            
-        };
-        
-        this.startGame = function(size) {
-            debug("GameLogic: startGame");
-            this.chessboard = new Chessboard(size);
-            // debug(this.chessboard.currentOS);
-        }
-        
-        /* Player Subclass */
-        // function Player(name, type) {
-        //     this.name = name;        
-                
-        //     this.makeMove = function() {
-        //         if (type === 'Human') {
-        //             this.chessboard().makeMove(dx, dy, os);
-        //         }
-        //         if (this.chessboard().madeSOS)
-        //     };
-        //     this.madeSOS = function() {
-                
-        //     };
-        // }
-        
-    });
-        
-    var GameDisplay = new (function GameDisplay() {
+    function GameDisplay() {
         
         /* Global Variables */
         var OSHeight = 100;
@@ -128,6 +83,30 @@ function loadSOSGame(canvasName) {
             };
         };
         
+        
+        var chessboard;
+        this.chessboard = chessboard;
+        
+        /* Chessboard Class */
+        function Chessboard(size) {
+            console.log("Gamelogic: new Chessboard");
+            var chessboard = [];
+            this.currentOS = 0;
+            this.size = size;
+            // create a size x size chessboard;
+            for (var i = 0; i < this.size; ++i) {
+                chessboard.push([]);
+                for (var j = 0; j < this.size; ++j) {
+                    chessboard[i].push(' ');
+                }
+            }
+            
+            this.hasSOS = function(x, y, OS) {chessboard[x][y] = OS;}
+            this.isFull = function() {return this.currentOS === this.size;}
+            this.block = function(bx, by) {};
+            
+        };
+        
         function OS(x, y, os) {
             var animate = new Animate(this);
             var m_trans = OS_ORI_TRANS;
@@ -171,7 +150,7 @@ function loadSOSGame(canvasName) {
             this.y = by * this.height;
             this.bx = bx;
             this.by = by;
-            this.OS = false;
+            this.os = false;
             this.animated = false;
             this.O = new OS(this.x, this.y, 'O');
             this.S = new OS(this.x + OSWidth, this.y, 'S');
@@ -179,23 +158,32 @@ function loadSOSGame(canvasName) {
                 // ctx.textBaseline = 'top';
                 // ctx.font = '12pt Aprial';
                 // ctx.strokeText("bx = "+this.bx+' by = '+this.by, this.x, this.y);
-                if (this.OS) {
+                if (this.os) {
                     ctx.font = '20pt Aprial';                    
-                    ctx.strokeText(this.OS, this.x + blkWidth / 2, this.y + blkHeight / 2);
+                    ctx.strokeText(this.os, this.x + blkWidth / 2, this.y + blkHeight / 2);
                 } else {
                     this.O.draw();
                     this.S.draw();
                 }
             };            
             this.dehover = function() {
+                if (this.os) {return;}
                 this.O.fadeout(0);
                 this.S.fadeout(0);
             }
+            this.click = function(os) {
+                if (this.os) {return;}
+                console.log("Block:click "+os)
+                this.os = os;
+                delete this.O;
+                delete this.S;
+                this.draw();
+            };
         };
-                
         
-        this.start = function() {    
+        this.start = function(size) {    
             debug("GameDisplay: start");    
+            chessboard = new Chessboard(size);
             this.chessboardRangeX = GameLogic.chessboard.size * OSWidth * 2;
             this.chessboardRangeY = GameLogic.chessboard.size * OSHeight;
             // create a size x size chessboard;
@@ -213,8 +201,9 @@ function loadSOSGame(canvasName) {
         }
         
         
-        this.hoverAnimation = function(bx, by, OS) {
-            if (OS == 'S') {
+        this.hoverAnimation = function(bx, by, os) {
+            if (blocks[bx][by].os) {return;}
+            if (os == 'S') {
                 debug("hoverAnimation: call fadein on ", bx+' '+by+' '+'S');
                 blocks[bx][by].S.fadein(OS_HOVER_TRANS);
                 debug("hoverAnimation: call fadeout on ", bx+' '+by+' '+'O');
@@ -231,6 +220,10 @@ function loadSOSGame(canvasName) {
             blocks[bx][by].dehover();
         }
         
+        this.clickAnimation = function(bx, by, os) {
+            blocks[bx][by].click(os);
+        }
+        
         this.blockX = function(x) {
             if (x > this.chessboardRangeX) {return false;}
             return Math.floor(convasX(event.x) / blkWidth);
@@ -243,19 +236,43 @@ function loadSOSGame(canvasName) {
             if (x > this.chessboardRangeX || y > this.chessboardRangeY) {return false;}
             return convasX(event.x) / blkWidth % 1 > 0.5 ? "S" : "O";
         }; 
-    });
+        
+    };
+    
+
+    function GameLogic() {
+
+        /* Player Subclass */
+        this.Player = function(name, type) {
+            this.name = name;       
+            this.type = type;
+            this.score = 0;
+            var lastMove;
+
+            this.makeMove = function(bx, by, os) {
+                if (type === 'Human') {
+                    this.chessboard.makeMove(bx, by, os);
+                    lastMove = {bx:bx, by:by, os:os};
+                }
+            };
+            
+            this.madeSOS = function() {return chessboard.hasSOS(lastMove.bx, lastMove.by, lastMove.os);}
+        }
+        
+        
+    };
     
     var GameControl = new (function GameControl() {        
-        
-        this.Player = function(name, type) {
             
+        this.Player = function(name, type) {
+            // inherit
+            this.name = name;
             this.type = type;
-    
+            
             this.usrMove = function(callback) {
-                var prevX = false;
-                var prevY = false;
-                var prevOS = false;
-                
+                var prev = {bx:false, by:false, os:false};
+                var player = this;
+            
                 canvas.addEventListener("mousemove", function(event) {
                     debug("GameControl: addEventListener: mousemove");
                     var bx = GameDisplay.blockX(event.x);
@@ -264,21 +281,21 @@ function loadSOSGame(canvasName) {
                     // debug('GameControl-onmousemove: bx',bx);
                     // debug('GameControl-onmousemove: by',by);
                     // debug('GameControl-onmousemove: os',os);
-                    // debug('GameControl-onmousemove: prevX',prevX);
-                    // debug('GameControl-onmousemove: prevY',prevY);
-                    // debug('GameControl-onmousemove: prevOS',prevOS);
-                    // debug(prevX !== bx || prevY !== by);
-                    if (bx !== false && by !== false && (os !== prevOS || bx !== prevX || by !== prevY)) { // if the mouse is on a different O/S from last time, play hover animation // if mouse is in a chessboard block
+                    // debug('GameControl-onmousemove: prev.bx',prev.bx);
+                    // debug('GameControl-onmousemove: prev.by',prev.by);
+                    // debug('GameControl-onmousemove: prev.os',prev.os);
+                    // debug(prev.bx !== bx || prev.by !== by);
+                    if (bx !== false && by !== false && (os !== prev.os || bx !== prev.bx || by !== prev.by)) { // if the mouse is on a different O/S from last time, play hover animation // if mouse is in a chessboard block
                         debug("GameControl: call hoverAnimation on", bx+' '+by+' '+os);
                         GameDisplay.hoverAnimation(bx, by, os);
                     }
-                    if (prevX !== false && prevY !== false && (prevX !== bx || prevY !== by)) { // if the block has changed, play dehover animations on the block
-                        debug("GameControl: call dehoverAnimation on", prevX+' '+prevY+' '+prevOS);
-                        GameDisplay.dehoverAnimation(prevX, prevY, prevOS);
+                    if (prev.bx !== false && prev.by !== false && (prev.bx !== bx || prev.by !== by)) { // if the block has changed, play dehover animations on the block
+                        debug("GameControl: call dehoverAnimation on", prev.bx+' '+prev.by+' '+prev.os);
+                        GameDisplay.dehoverAnimation(prev.bx, prev.by, prev.os);
                     };
-                    prevOS = os;
-                    prevX = bx;
-                    prevY = by;
+                    prev.os = os;
+                    prev.bx = bx;
+                    prev.by = by;
                 });
                 
                 canvas.addEventListener("click", function(event) {
@@ -286,29 +303,32 @@ function loadSOSGame(canvasName) {
                     var by = GameDisplay.blockY(event.y);
                     var os = GameDisplay.blockM(event.x, event.y);
                     GameDisplay.clickAnimation(bx, by, os);
-                    if (GameLogic.makeSOS(bx, by, os)) {}
-                    GameLogic.player.makeMove(bx, by, os);
+                    console.log(player);
+                    player.makeMove(bx, by, os);
+                    if (player.madeSOS()) {
+                        player.score++;
+                        return player.usrMove(callback);
+                    };
                     
                     canvas.removeEventListener("mousemove");
                     canvas.removeEventListener("click");
                     callback();
                 });
-            };
+            };            
             
             this.cmpMove = function() {
             }
             
         }
-            
+        // this.Player.prototype = new GameLogic.Player();
     });
 
 
     /* Main */
     var A = new GameControl.Player("A", 'Human');
     var B = new GameControl.Player("B", 'Human');
-    
-    GameLogic.startGame(4);
-    GameDisplay.start();
+
+    GameDisplay.start(4);
     // GameControl.init();
     GameDisplay.draw();
     
