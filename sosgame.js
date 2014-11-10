@@ -234,7 +234,7 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
             // var EDGE_LENGTH = Math.min(canvas.parentNode.offsetHeight, canvas.parentNode.offsetWidth, window.innerHeight, window.innerWidth);
             this.blkHeight = this.blkWidth = this.OSHeight = EDGE_LENGTH / size;
             this.OSWidth = this.OSHeight / 2;
-            this.OS_FONT_SIZE = this.OSWidth - 10;
+            this.OS_FONT_SIZE = this.OSWidth - 5;
             canvas.width = canvas.height = size * GameDisplay.blkHeight;
             this.chessboard = new this.ChessboardClass(size);
         }

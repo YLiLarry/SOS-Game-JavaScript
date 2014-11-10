@@ -5,6 +5,7 @@
     <style type="text/css">
         canvas#c {
             border: 1px dotted #000;
+            -webkit-tap-highlight-color: transparent;
         }
         * {
             padding: 0;
@@ -17,6 +18,6 @@
         <canvas id='SOSGame'></canvas>
     </div>
     <script type="text/javascript" src='sosgame.js'></script>
-    <script>loadSOSGame('SOSGame', 500);</script>
+    <script>loadSOSGame('SOSGame', Math.min(window.innerHeight, window.innerWidth));</script>
 </body>
 </html>
