@@ -6,16 +6,13 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
     canvas.style.position = 'relative';
     var ctx = canvas.getContext("2d");
 
+    /* I divide the code into Logic, Display and Control sections according to methods' functionalities for readability */
     // namespace GameDisplay
-    /* Namespaces have no special meanings. I divide the code into Logic, Display and Control sections according to methods' functionalities for quick lookup */
     var GameDisplay = new function() {
-        
-        // console.log("New GameDisplay Object", this);
-        // get rid of the overhead 'this'
+
         var GameDisplay = this;
         
         /* Global Variables */
-        // Always declear fields explicitly 
         GameDisplay.OSHeight;
         GameDisplay.OSWidth;
         GameDisplay.blkWidth;
@@ -25,32 +22,13 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
         GameDisplay.OS_HOVER_TRANS = 1;
         GameDisplay.OS_DEHOVER_TRANS = 0.25;
         GameDisplay.OS_ORI_TRANS = 0;
-        
-        // console.log("GameDisplay", GameDisplay);
-
-        GameDisplay.clear = function() {
-            // console.log("GameDisplay: clear");
-            ctx.clearRect(0,0,canvas.width,canvas.height);
-        };
-        
-        GameDisplay.draw = function() {
-            // console.log("call draw on", this);
-            for (var i = 0; i < this.chessboard.size; i++) {
-                for (var j = 0; j < this.chessboard.size; j++) {
-                    // console.log('bx'+i+j, chessboard[i][j].bx, i); 
-                    // console.log('by'+i+j, chessboard[i][j].by, j);
-                    this.chessboard.block(i, j).draw();
-                }
-            }
-        };
-        
-        GameDisplay.redraw = function() {this.clear(); this.draw();}
-        
+               
         GameDisplay.Animate = function(target) {
             target.__animateInterval__ = false;
             this.target = target;
         };
         var Animate = GameDisplay.Animate.prototype;
+        
         Animate.during = function(condf, func) {
             return function(param) {
                 var obj = this;
@@ -103,7 +81,6 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
         OSClass.fadeto = function(n) {(this.trans < n) ? this.fadein(n) : this.fadeout(n);};        
 
         OSClass.draw = function() {
-            // console.log("OS draw:", this, "trans", this.trans);
             ctx.textBaseline = 'middle';
             ctx.textAlign = 'center';
             ctx.font = GameDisplay.OS_FONT_SIZE+"px Arial";
@@ -112,7 +89,6 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
             var ty = this.y + GameDisplay.OSHeight / 2;
             ctx.strokeText(this.os, tx, ty);
             // ctx.strokeRect(this.x, this.y, this.width, this.height);
-            // console.log('x_'+x, this.x, 0); console.log('y_'+y, this.y);
         };
         
         /* Block Class */
@@ -130,7 +106,6 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
         var Block = GameDisplay.Block.prototype;
         Block.isOccupied = function() {return this.os;}
         Block.draw = function() {
-            // console.log("Block draw", this);
             if (this.partOfSOS) {ctx.fillStyle = '#FF5648';}
             else {ctx.fillStyle = ((this.bx + this.by) % 2) ? '#9A884D' : '#FFD753';}
             ctx.fillRect(this.x, this.y, GameDisplay.blkHeight, GameDisplay.blkWidth);
@@ -164,8 +139,6 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
             for (var i = 0; i < this.size; ++i) {
                 this.mcb.push([]);
                 for (var j = 0; j < this.size; ++j) {
-                    // console.log("push ", i+' '+j);
-                    // console.log(this.mcb);
                     this.mcb[i].push(new GameDisplay.Block(i, j));
                 }
             }
@@ -185,6 +158,20 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
         Player.redrawScore = function() {
             this.div.innerHTML = this.name+" score: "+this.score;
         }
+        
+        GameDisplay.clear = function() {
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+        };
+        
+        GameDisplay.draw = function() {
+            for (var i = 0; i < this.chessboard.size; i++) {
+                for (var j = 0; j < this.chessboard.size; j++) {
+                    this.chessboard.block(i, j).draw();
+                }
+            }
+        };
+        
+        GameDisplay.redraw = function() {this.clear(); this.draw();}
         
         GameDisplay.hoverAnimation = function(bx, by, os) {
             var bl = this.chessboard.block(bx, by);
@@ -213,10 +200,12 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
             var bx = Math.floor(x / GameDisplay.blkWidth); 
             return (bx < this.chessboard.size) ? bx : false;
         };
+        
         GameDisplay.blockY = function(y) {
             var by = Math.floor(y / GameDisplay.blkHeight);
             return (by < this.chessboard.size) ? by : false;
         };
+        
         GameDisplay.blockM = function(x, y) {
             if (this.blockX(x) < this.chessboard.size && this.blockY(y) < this.chessboard.size) {
                 return x / GameDisplay.blkWidth % 1 > 0.5 ? "S" : "O";
@@ -238,7 +227,6 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
         }  
         
         GameDisplay.start = function(size) {
-            // console.log("GameLogic Object: start", this);
             // var EDGE_LENGTH = Math.min(canvas.parentNode.offsetHeight, canvas.parentNode.offsetWidth, window.innerHeight, window.innerWidth);
             this.blkHeight = this.blkWidth = this.OSHeight = EDGE_LENGTH / size;
             this.OSWidth = this.OSHeight / 2;
@@ -249,26 +237,26 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
         
     };
 
-    /* Namespaces have no special meanings. I divide the code into Logic, Display and Control sections according to method functionalities for quick lookup */
+    /* I divide the code into Logic, Display and Control sections according to method functionalities for readability */
     // namespace GameLogic
     var GameLogic = new function() {
-        // console.log("New GameLogic Object:", this);
         var GameLogic = this;
         
-        // public fields
+        /* Gloable Varible */
         GameLogic.chessboard;
         // shorthands. going to directly mutate the GameDisplay.Chessboard prototype
         var Chessboard = GameDisplay.Chessboard.prototype;
 
         Chessboard.isFull = function() {return this.currentOS === this.size * this.size;}
+        
         Chessboard.block = function(bx, by) {
-            // console.log("call block", bx, by, "on", GameLogic);
             if (bx >= 0 && bx < this.size && by >= 0 && by < this.size) {
                 return this.mcb[bx][by];
             } else {
                 return false;
             }
         }
+        
         Chessboard.makeMove = function(bx, by, os) {
             this.currentOS++; 
             // change the surrounding's safeO/S fields
@@ -294,7 +282,6 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
                 fO(bx+2,by-2);
                 fO(bx-2,by-2);
                 fO(bx-2,by+2);
-                
             } else {
                 fO(bx+1,by); 
                 fO(bx-1,by); 
@@ -314,15 +301,16 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
                 fS(bx-2,by-2);
                 fS(bx-2,by+2);
             }
-            console.log("Chessboard: current", this);
             // if made SOS, then turn the blocks to other color
             var ls = this.hasSOS(bx, by, os);
             for (var i = 0; i < ls.length; i++) {
                 ls[i][0].partOfSOS = ls[i][1].partOfSOS = ls[i][2].partOfSOS = true;
             }
             GameDisplay.redraw();
-        }
+        };
+        
         Chessboard.isOccupied = function(bx, by) {return GameDisplay.chessboard.block(bx, by).os;}
+        
         Chessboard.hasSOS = function(bx, by, os) {
             function neg(os) {return (os === 'S' ? 'O' : 'S');}
             var ls = [];
@@ -343,6 +331,7 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
             }
             return ls;
         }
+        
         Chessboard.moveAble = function(bx, by) {
             var b = this.block(bx, by);
             if (b.safeO && b.safeS) {return 'S';}
@@ -350,6 +339,7 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
             if (b.safeO) {return 'O';}
             return false;
         }
+        
         Chessboard.isSafe = function(bx, by, os) {
             if (os === 'O') {
                 return (! ((this.block(bx-1, by).os === false && this.block(bx+1, by).os === 'S') ||
@@ -388,12 +378,11 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
 
     };
     
-    /* Namespaces have no special meanings. I divide the code into Logic, Display and Control sections according to methods' functionalities for quick lookup */
+    /* I divide the code into Logic, Display and Control sections according to methods' functionalities for readability */
     // namespace GameControl
     var GameControl = new function() {
         
         var GameControl = this;
-        // console.log("New GameControl Object", this);
         
         // shorthands. going to directly mutate the GameDisplay.Chessboard prototype
         var Player = GameDisplay.Player.prototype;
@@ -408,17 +397,7 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
                 var bx = GameDisplay.blockX(event.offsetX);
                 var by = GameDisplay.blockY(event.offsetY);
                 var os = GameDisplay.blockM(event.offsetX, event.offsetY);
-                // console.log(canvas.offsetTop, event.offsetY);
-                // console.log('GameDisplay-onmousemove: bx',bx);
-                // console.log('GameDisplay-onmousemove: by',by);
-                // console.log('GameDisplay-onmousemove: os',os);
-                // console.log('GameDisplay-onmousemove: prevX',prevX);
-                // console.log('GameDisplay-onmousemove: prevY',prevY);
-                // console.log('GameDisplay-onmousemove: prevOS',prevOS);
-                // console.log(prevX !== bx || prevY !== by);
                 if (bx !== false && by !== false && (os !== prevOS || bx !== prevX || by !== prevY)) { // if the mouse is on a different O/S from last time, play hover animation // if mouse is in a chessboard block
-                    // console.log("GameDisplay: call hoverAnimation on", bx+' '+by+' '+os);
-                    // console.log('GameDisplay.chessboard',GameDisplay.chessboard);
                     GameDisplay.hoverAnimation(bx, by, os);
                 }
                 if (prevX !== false && prevY !== false && (prevX !== bx || prevY !== by)) { // if the block has changed, play dehover animations on the block
@@ -462,10 +441,8 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
         
         Player.cmpMove = function(callback) {
             var Player = this;
-            // console.log(Player.name+"'s move");
             var r;
             var cb = GameDisplay.chessboard;
-            // console.log("cmpMove: try to find an SOS");
             for (var i = 0; i < cb.size; i++) {
                 for (var j = 0; j < cb.size; j++) {
                     if (! cb.isOccupied(i, j)) { // if found a move to make SOS
@@ -484,7 +461,6 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
                     }
                 }
             }
-            // console.log("cmpMove: can't find an SOS");
             // if there no move to make SOS
             var moveAbleLs = [];
             var unmoveAble;
@@ -512,18 +488,14 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
             if (! moveAbleLs.length) {
                 cb.makeMove(unmoveAble.bx, unmoveAble.by, unmoveAble.os);
             } else {
-                // console.log("cmpMove: moveAble list", moveAbleLs);
                 var idx = Math.floor(Math.random() * moveAbleLs.length);
                 var m = moveAbleLs[idx];
-                // console.log("cmpMove: random m", m, idx, moveAbleLs.length);
                 cb.makeMove(m.bx, m.by, m.os);
             }
             callback();
         }
     
         Player.makeMove = function(callback) {
-            // console.log(this.name+" move");
-            // console.log("# of Moves", GameDisplay.chessboard.currentOS, "out of", GameDisplay.chessboard.size*GameDisplay.chessboard.size);
             if (GameDisplay.chessboard.isFull()) {GameControl.gameOver(); return;}
             this.type === 'Human' ? this.usrMove(callback) : this.cmpMove(callback);
         }
@@ -556,9 +528,6 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
         }
         
         GameControl.gameOver = function() {
-            // console.log("Game over");
-            // console.log("A's score", this.A.score);
-            // console.log("B's score", this.B.score);
             if (this.A.score > this.B.score) {
                 GameDisplay.drawGameOver('You Won');
             } else
@@ -578,7 +547,4 @@ function loadSOSGame(canvasName, EDGE_LENGTH) {
     
     /* Main */
     GameControl.gameStart(5);
-
 }
-
-
